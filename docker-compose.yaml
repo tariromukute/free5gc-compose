@@ -3,7 +3,7 @@ version: "3.8"
 services:
   free5gc-upf:
     container_name: "upf"
-    image: oaisoftwarealliance/oai-upf:develop
+    image: tariromukute/oai-upf:fix-measurement-ie
     expose:
         - 2152/udp
         - 8805/udp
@@ -26,6 +26,8 @@ services:
     extra_hosts:
         - "oai-ext-dn:10.100.150.135"
         - "oai-nrf:10.100.200.139"
+    profiles:
+      - cn
 
   db:
     container_name: mongodb
@@ -41,6 +43,9 @@ services:
       privnet:
         aliases:
           - db
+    profiles:
+      - cn
+      - db
 
   free5gc-nrf:
     container_name: nrf
@@ -61,6 +66,8 @@ services:
         ipv4_address: 10.100.200.139
     depends_on:
       - db
+    profiles:
+      - cn
 
   free5gc-amf:
     container_name: amf
@@ -80,6 +87,8 @@ services:
           - amf.free5gc.org
     depends_on:
       - free5gc-nrf
+    profiles:
+      - cn
 
   free5gc-ausf:
     container_name: ausf
@@ -98,6 +107,8 @@ services:
           - ausf.free5gc.org
     depends_on:
       - free5gc-nrf
+    profiles:
+      - cn
 
   free5gc-nssf:
     container_name: nssf
@@ -116,6 +127,8 @@ services:
           - nssf.free5gc.org
     depends_on:
       - free5gc-nrf
+    profiles:
+      - cn
 
   free5gc-pcf:
     container_name: pcf
@@ -134,10 +147,13 @@ services:
           - pcf.free5gc.org
     depends_on:
       - free5gc-nrf
+    profiles:
+      - cn
 
   free5gc-smf:
     container_name: smf
     image: free5gc/smf:v4.1.0
+    # image: free5gc-compose-free5gc-smf:latest
     command: ./smf -c ./config/smfcfg.yaml -u ./config/uerouting.yaml
     expose:
       - "8000"
@@ -154,6 +170,8 @@ services:
     depends_on:
       - free5gc-nrf
       - free5gc-upf
+    profiles:
+      - cn
 
   free5gc-udm:
     container_name: udm
@@ -173,6 +191,8 @@ services:
     depends_on:
       - db
       - free5gc-nrf
+    profiles:
+      - cn
 
   free5gc-udr:
     container_name: udr
@@ -193,6 +213,8 @@ services:
     depends_on:
       - db
       - free5gc-nrf
+    profiles:
+      - cn
 
   free5gc-chf:
     container_name: chf
@@ -214,6 +236,8 @@ services:
       - db
       - free5gc-nrf
       - free5gc-webui
+    profiles:
+      - cn
 
   free5gc-nef:
     container_name: nef
@@ -233,6 +257,8 @@ services:
     depends_on:
       - db
       - free5gc-nrf
+    profiles:
+      - cn
 
   free5gc-webui:
     container_name: webui
@@ -256,6 +282,9 @@ services:
     depends_on:
       - db
       - free5gc-nrf
+    profiles:
+      - webui
+      - cn
   oai-ext-dn:
     privileged: true
     init: true
@@ -264,31 +293,33 @@ services:
     environment:
       - EBPF_GW_SETUP=yes
       - EBPF_GW_N6_IP_ADDR=10.100.150.135
-      - GW_SGI_IP_ADDR=192.168.70.135
+      - GW_SGI_IP_ADDR=10.100.200.135
       - GW_N3_IP_ADDR=10.100.100.135
-      - UE_IP_ADDRESS_POOL=12.1.1.0/24
-      - N6_UPF_IP_ADDR=110.100.150.129
-      - SGI_DEMO_OAI_ADDR=192.168.70.129
+      - UE_IP_ADDRESS_POOL=10.60.0.0/24
+      - N6_UPF_IP_ADDR=10.100.150.129
+      - SGI_DEMO_OAI_ADDR=10.100.200.129
     healthcheck:
-      test: /bin/bash -c "ip r | grep 12.1.1"
+      test: /bin/bash -c "ip r | grep 10.60.0"
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       privnet:
-        # ipv4_address: 10.100.200.135
+        ipv4_address: 10.100.200.135
       n3_net:
-        # ipv4_address: 10.100.100.135
+        ipv4_address: 10.100.100.135
       n6_net:
-        # ipv4_address: 10.100.150.135
+        ipv4_address: 10.100.150.135
+    profiles:
+      - cn
   gnb:
     cap_add:
       - NET_ADMIN
     command: ./nr-gnb -c /ueransim/config/gnbcfg.yaml
     container_name: gnb
-    depends_on:
-      - free5gc-amf
-      - free5gc-upf
+    # depends_on:
+    #   - free5gc-amf
+    #   - free5gc-upf
     devices:
       - /dev/net/tun
     image: 'tariromukute/ueransim:v3.2.7'
@@ -296,9 +327,15 @@ services:
       privnet:
         aliases:
           - gnb.free5gc.org
+      n3_net:
+        aliases:
+          - gnb-n3.free5gc.org
     volumes:
       - './ueransim/free5gc-gnb.yaml:/ueransim/config/gnbcfg.yaml'
       - './ueransim/free5gc-ue.yaml:/ueransim/config/uecfg.yaml'
+    profiles:
+      - gnb
+      - ran
 
   ue:
     cap_add:
@@ -312,9 +349,9 @@ services:
         nr-ue -c /ueransim/config/uecfg.yaml
         tail -f /dev/null
     container_name: ue
-    depends_on:
-      - free5gc-amf
-      - free5gc-upf
+    # depends_on:
+    #   - free5gc-amf
+    #   - free5gc-upf
     devices:
       - /dev/net/tun
     image: 'tariromukute/ueransim:v3.2.7'
@@ -325,6 +362,9 @@ services:
     volumes:
       - './ueransim/free5gc-gnb.yaml:/ueransim/config/gnbcfg.yaml'
       - './ueransim/free5gc-ue.yaml:/ueransim/config/uecfg.yaml'
+    profiles:
+      - ue
+      - ran
 
 networks:
   privnet:
